@@ -5,104 +5,138 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f4f6f5">
+  <meta name="description" content="Czytelny przegląd najnowszej literatury naukowej dotyczącej kręgosłupa.">
   <title>Spine Library</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%2305676b%22/><path d=%22M17 5c-4 3-4 7 0 10s4 7 0 12M11 9h10M11 15h11M10 21h11%22 fill=%22none%22 stroke=%22white%22 stroke-width=%222%22 stroke-linecap=%22round%22/></svg>">
   <link rel="preconnect" href="https://api.fontshare.com">
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2.0">
-  <script src="app.js?v=2.0" defer></script>
+  <link rel="stylesheet" href="styles.css?v=4.0">
+  <script src="app.js?v=4.0" defer></script>
 </head>
 <body>
-<a class="skip-link" href="#main">Przejdź do treści</a>
+<a class="skip" href="#main">Przejdź do treści</a>
 <header class="topbar">
-  <div class="topbar-inner">
+  <div class="topbar-in">
     <a class="brand" href="#" aria-label="Spine Library — strona główna">
-      <svg viewBox="0 0 34 34" width="34" height="34" fill="none" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="9" fill="currentColor"/><path d="M18 6c-4 3-4 7 0 10s4 7 0 12M11 10h11M11 16h12M10 22h12" stroke="var(--brand-mark-line)" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg viewBox="0 0 34 34" width="34" height="34" fill="none" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="9" fill="currentColor"/><path d="M18 6c-4 3-4 7 0 10s4 7 0 12M11 10h11M11 16h12M10 22h12" stroke="var(--mark)" stroke-width="2" stroke-linecap="round"/></svg>
       <span><strong>Spine Library</strong><small>Przegląd literatury kręgosłupowej</small></span>
     </a>
-    <div class="topbar-actions">
+    <div class="top-actions">
       <span id="sourceState" class="source-state"><i></i><span>Gotowe</span></span>
-      <button id="themeButton" class="icon-button" type="button" aria-label="Zmień motyw" title="Zmień motyw">
+      <button id="densityButton" class="icon-text" type="button" aria-pressed="false">Widok zwarty</button>
+      <button id="toolsButton" class="icon-text" type="button" aria-expanded="false" aria-controls="toolsMenu">Narzędzia</button>
+      <button id="themeButton" class="icon-button" type="button" aria-label="Włącz ciemny motyw" title="Zmień motyw">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
       </button>
+    </div>
+    <div id="toolsMenu" class="tools-menu" hidden>
+      <strong>Eksport i dane</strong>
+      <button type="button" data-export="csv">Eksportuj CSV</button>
+      <button type="button" data-export="bib">Eksportuj BibTeX</button>
+      <button type="button" data-export="ris">Eksportuj RIS</button>
+      <button id="copyViewButton" type="button">Kopiuj link do widoku</button>
+      <hr>
+      <button id="backupButton" type="button">Pobierz kopię danych</button>
+      <button id="importButton" type="button">Wczytaj kopię danych</button>
+      <input id="importFile" type="file" accept="application/json" hidden>
+      <p>Eksport obejmuje bieżący widok. Kopia zawiera listy, notatki i zapisane widoki.</p>
     </div>
   </div>
 </header>
 
 <main id="main" class="page">
   <section class="hero" aria-labelledby="pageTitle">
-    <div><p class="overline">BIBLIOTEKA PUBLIKACJI</p><h1 id="pageTitle">Najważniejsze artykuły o kręgosłupie</h1><p>Jedno czytelne miejsce do regularnego przeglądania literatury z wybranych czasopism.</p></div>
+    <div><p class="overline">BIBLIOTEKA PUBLIKACJI</p><h1 id="pageTitle">Najważniejsze artykuły o kręgosłupie</h1><p>Przeglądaj nowe badania, porównuj publikacje i buduj własną bibliotekę kliniczną.</p></div>
     <button id="loadButton" class="button primary" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 0 0-15-3M4 4v5h5M4 13a8 8 0 0 0 15 3M20 20v-5h-5"/></svg><span>Pobierz artykuły</span></button>
   </section>
 
   <section class="summary" aria-label="Podsumowanie">
     <article><span>Widoczne</span><strong id="visibleStat">0</strong></article>
     <article><span>Open Access</span><strong id="oaStat">0</strong></article>
+    <article><span>Nowe</span><strong id="newStat">0</strong></article>
     <article><span>Do przeczytania</span><strong id="queueStat">0</strong></article>
     <article><span>Ulubione</span><strong id="favoriteStat">0</strong></article>
     <article><span>Przeczytane</span><strong id="readStat">0</strong></article>
   </section>
 
+  <section id="insights" class="insights" aria-label="Szybki obraz wyników" hidden>
+    <div><span>Najczęstszy typ</span><strong id="topType">—</strong></div>
+    <div><span>Najaktywniejsze czasopismo</span><strong id="topJournal">—</strong></div>
+    <div><span>Mediana cytowań</span><strong id="medianCitations">—</strong></div>
+  </section>
+
   <div class="layout">
-    <aside class="sidebar" aria-label="Widoki biblioteki">
-      <nav id="viewNav" class="view-nav" aria-label="Listy artykułów">
-        <button class="view-button active" data-view="all" type="button"><span>Wszystkie</span><output id="allCount">0</output></button>
-        <button class="view-button" data-view="queue" type="button"><span>Do przeczytania</span><output id="queueCount">0</output></button>
-        <button class="view-button" data-view="favorites" type="button"><span>Ulubione</span><output id="favoritesCount">0</output></button>
-        <button class="view-button" data-view="read" type="button"><span>Przeczytane</span><output id="readCount">0</output></button>
-        <button class="view-button" data-view="hidden" type="button"><span>Ukryte</span><output id="hiddenCount">0</output></button>
+    <aside class="sidebar">
+      <nav id="viewNav" class="view-nav" aria-label="Widoki">
+        <button class="view-btn active" data-view="all"><span>Wszystkie</span><output id="allCount">0</output></button>
+        <button class="view-btn" data-view="new"><span>Nowe od ostatniej wizyty</span><output id="newCount">0</output></button>
+        <button class="view-btn" data-view="queue"><span>Do przeczytania</span><output id="queueCount">0</output></button>
+        <button class="view-btn" data-view="favorites"><span>Ulubione</span><output id="favoritesCount">0</output></button>
+        <button class="view-btn" data-view="read"><span>Przeczytane</span><output id="readCount">0</output></button>
+        <button class="view-btn" data-view="hidden"><span>Ukryte</span><output id="hiddenCount">0</output></button>
       </nav>
-      <section class="side-section" aria-labelledby="favoriteJournalsTitle">
-        <div class="side-heading"><h2 id="favoriteJournalsTitle">Ulubione czasopisma</h2><button id="clearJournalFavorites" type="button">Wyczyść</button></div>
-        <div id="favoriteJournals" class="favorite-journals"></div>
+      <section class="side-section">
+        <div class="side-heading"><h2>Zapisane widoki</h2><button id="saveViewButton" type="button">+ Zapisz</button></div>
+        <div id="savedViews" class="saved-views"><p class="side-empty">Brak zapisanych widoków</p></div>
       </section>
-      <div class="privacy-note"><strong>Prywatnie i lokalnie</strong><p>Twoje listy są przechowywane wyłącznie w tej przeglądarce.</p></div>
+      <section class="side-section">
+        <div class="side-heading"><h2>Ulubione czasopisma</h2><button id="clearJournalFavorites" type="button">Wyczyść</button></div>
+        <div id="favoriteJournals"><p class="side-empty">Brak ulubionych</p></div>
+      </section>
+      <div class="shortcuts"><strong>Skróty</strong><p><kbd>/</kbd> wyszukiwanie <kbd>Esc</kbd> zamknij panel</p></div>
+      <div class="privacy"><strong>Prywatnie i lokalnie</strong><p>Listy i notatki są przechowywane lokalnie, jeśli przeglądarka na to pozwala. Kopię pobierzesz w Narzędziach.</p></div>
     </aside>
 
-    <section class="workspace" aria-labelledby="resultsTitle">
+    <section class="workspace">
       <form id="filters" class="filters" autocomplete="off">
-        <div class="field search-field"><label for="titleQuery">Szukaj w tytule</label><div class="input-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="titleQuery" type="search" placeholder="np. lumbar fusion"></div></div>
-        <div class="field"><label for="dateFrom">Od</label><input id="dateFrom" type="date" required></div>
-        <div class="field"><label for="dateTo">Do</label><input id="dateTo" type="date" required></div>
+        <div class="field search-field"><label for="query">Tytuł, autor lub słowo kluczowe</label><div class="input-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="query" type="search" placeholder="np. cervical myelopathy"></div></div>
+        <div class="field"><label for="dateFrom">Od</label><input id="dateFrom" type="date"></div>
+        <div class="field"><label for="dateTo">Do</label><input id="dateTo" type="date"></div>
         <div class="field"><label for="sortSelect">Sortowanie</label><select id="sortSelect"><option value="date">Od najnowszych</option><option value="citations">Najczęściej cytowane</option><option value="journal">Czasopismo A–Z</option><option value="title">Tytuł A–Z</option></select></div>
-        <div class="quick-dates" aria-label="Szybki zakres dat"><span>Zakres:</span><button type="button" data-days="7">7 dni</button><button class="active" type="button" data-days="30">30 dni</button><button type="button" data-days="90">90 dni</button></div>
+        <div class="quick-dates"><span>Zakres:</span><button type="button" data-days="7">7 dni</button><button class="active" type="button" data-days="30">30 dni</button><button type="button" data-days="90">90 dni</button><button type="button" data-days="365">Rok</button></div>
+        <div class="topic-row" aria-label="Tematy"><span>Temat:</span><button class="active" type="button" data-topic="">Wszystkie</button><button type="button" data-topic="cervical">Szyjny</button><button type="button" data-topic="lumbar">Lędźwiowy</button><button type="button" data-topic="deformity">Deformacje</button><button type="button" data-topic="trauma">Urazy</button><button type="button" data-topic="tumor">Nowotwory</button><button type="button" data-topic="technology">Technologie</button></div>
         <button id="mobileLoadButton" class="button primary mobile-load" type="button">Pobierz</button>
-        <button id="moreFiltersButton" class="button quiet more-filters" type="button" aria-expanded="false" aria-controls="extraFilters">Więcej filtrów <span>⌄</span></button>
-        <div id="extraFilters" class="extra-filters" hidden>
-          <label class="checkbox-row"><input id="oaOnly" type="checkbox"><span>Tylko Open Access</span></label>
-          <fieldset><div class="fieldset-heading"><legend>Czasopisma</legend><div><button id="selectAllJournals" type="button">Wszystkie</button><button id="clearJournals" type="button">Żadne</button></div></div><div id="journalOptions" class="journal-options"></div></fieldset>
+        <button id="moreFiltersButton" class="button quiet more" type="button" aria-expanded="false">Więcej filtrów <span>⌄</span></button>
+        <div id="extraFilters" class="extra" hidden>
+          <div class="extra-top">
+            <label class="check"><input id="oaOnly" type="checkbox"> Tylko Open Access</label>
+            <label class="check"><input id="abstractOnly" type="checkbox"> Tylko z abstraktem</label>
+            <div class="field type-field"><label for="studyType">Typ publikacji</label><select id="studyType"><option value="">Wszystkie typy</option><option value="meta">Przegląd systematyczny / metaanaliza</option><option value="trial">Badanie randomizowane</option><option value="prospective">Badanie prospektywne</option><option value="retrospective">Badanie retrospektywne</option><option value="case">Opis / seria przypadków</option><option value="review">Przegląd narracyjny</option><option value="other">Inne</option></select></div>
+          </div>
+          <fieldset><div class="fieldset-head"><legend>Czasopisma</legend><div><button id="selectAllJournals" type="button">Wszystkie</button><button id="clearJournals" type="button">Żadne</button></div></div><div id="journalOptions" class="journal-options"></div></fieldset>
         </div>
       </form>
 
-      <header class="results-heading"><div><p class="overline">BIEŻĄCY WIDOK</p><h2 id="resultsTitle">Wszystkie artykuły</h2></div><div class="results-context"><strong id="resultCountText">0 wyników</strong><span id="updatedText">Nie pobrano jeszcze danych</span></div></header>
-
+      <header class="results-head">
+        <div><p class="overline">BIEŻĄCY WIDOK</p><h2 id="resultsTitle">Wszystkie artykuły</h2></div>
+        <div class="results-info"><strong id="resultCountText">0 wyników</strong><span id="updatedText">Nie pobrano jeszcze danych</span></div>
+      </header>
+      <div id="activeFilters" class="active-filters" hidden></div>
       <div id="message" class="message" role="status" aria-live="polite" hidden></div>
-      <div id="loadingState" class="loading-state" role="status" hidden><div class="loading-mark" aria-hidden="true">•••</div><div><strong>Pobieranie publikacji</strong><p>Europe PMC i PubMed są sprawdzane równolegle. To może potrwać kilka sekund.</p></div></div>
+      <div id="loadingState" class="loading" hidden><div class="loading-mark" aria-hidden="true">•••</div><div><strong>Pobieranie publikacji</strong><p>Europe PMC i PubMed są sprawdzane równolegle.</p></div></div>
       <div id="articleList" class="article-list"></div>
-      <div id="emptyState" class="empty-state" hidden><svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 10h13a5 5 0 0 1 5 5v25a5 5 0 0 0-5-5H8V10Zm32 0h-9a5 5 0 0 0-5 5v25a5 5 0 0 1 5-5h9V10Z"/></svg><h3 id="emptyTitle">Biblioteka jest pusta</h3><p id="emptyText">Wybierz daty i pobierz artykuły.</p><button id="emptyButton" class="button secondary" type="button">Wyczyść filtry</button></div>
-      <nav id="pagination" class="pagination" aria-label="Stronicowanie" hidden><button id="previousPage" class="button secondary" type="button">← Poprzednia</button><span id="pageText">Strona 1 z 1</span><button id="nextPage" class="button secondary" type="button">Następna →</button></nav>
+      <div id="emptyState" class="empty" hidden><svg viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 10h13a5 5 0 0 1 5 5v25a5 5 0 0 0-5-5H8V10Zm32 0h-9a5 5 0 0 0-5 5v25a5 5 0 0 1 5-5h9V10Z"/></svg><h3 id="emptyTitle">Biblioteka jest pusta</h3><p id="emptyText">Wybierz daty i pobierz artykuły.</p><button id="emptyButton" class="button secondary" type="button">Wyczyść filtry</button></div>
+      <nav id="pagination" class="pagination" aria-label="Paginacja" hidden><button id="previousPage" class="button secondary" type="button">← Poprzednia</button><span id="pageText">Strona 1 z 1</span><button id="nextPage" class="button secondary" type="button">Następna →</button></nav>
     </section>
   </div>
 </main>
 
+<div id="compareTray" class="compare-tray" hidden><div><strong>Porównanie</strong><span id="compareCount">0 z 3 publikacji</span></div><div><button id="clearCompare" class="button quiet" type="button">Wyczyść</button><button id="openCompare" class="button primary" type="button" disabled>Porównaj</button></div></div>
+
+<dialog id="compareDialog" class="compare-dialog" aria-labelledby="compareTitle"><div class="dialog-head"><div><p class="overline">ZESTAWIENIE</p><h2 id="compareTitle">Porównanie publikacji</h2></div><button id="closeCompare" class="icon-button" type="button" aria-label="Zamknij porównanie">×</button></div><div id="compareContent" class="compare-content"></div></dialog>
+
 <template id="articleTemplate">
   <article class="article">
-    <div class="article-topline"><span class="journal"></span><span class="dot">•</span><time></time><span class="tag oa" hidden>Open Access</span><span class="tag impact" hidden>Wysoki wpływ</span></div>
+    <div class="article-top"><button class="journal favorite-journal" type="button" title="Dodaj czasopismo do ulubionych"></button><span class="dot">•</span><time></time><span class="tag type"></span><span class="tag oa" hidden>Open Access</span><span class="tag fresh" hidden>Nowe</span></div>
     <h3 class="article-title"></h3>
-    <div class="article-details"><span class="citations"></span><span class="source"></span></div>
-    <div class="article-toolbar">
-      <button class="abstract-toggle" type="button" aria-expanded="false">Pokaż abstrakt</button>
-      <a class="pubmed-link" target="_blank" rel="noopener noreferrer">PubMed ↗</a>
-      <div class="article-actions">
-        <button class="article-action queue" type="button" aria-label="Dodaj do przeczytania"><span aria-hidden="true">＋</span><em>Do przeczytania</em></button>
-        <button class="article-action favorite" type="button" aria-label="Dodaj do ulubionych"><span aria-hidden="true">☆</span><em>Ulubione</em></button>
-        <button class="article-action read" type="button" aria-label="Oznacz jako przeczytane"><span aria-hidden="true">✓</span><em>Przeczytane</em></button>
-        <button class="article-action hide" type="button" aria-label="Ukryj artykuł"><span aria-hidden="true">−</span><em>Ukryj</em></button>
-      </div>
-    </div>
-    <section class="abstract" aria-label="Abstrakt" hidden><h4>Abstrakt</h4><p></p></section>
+    <p class="authors"></p>
+    <div class="article-meta"><span class="citations"></span><span class="source"></span><a class="doi-link" target="_blank" rel="noopener noreferrer" hidden>DOI ↗</a></div>
+    <div class="article-toolbar"><button class="abstract-toggle" type="button">Pokaż abstrakt</button><a class="pubmed-link" target="_blank" rel="noopener noreferrer">PubMed ↗</a><button class="copy-citation" type="button">Kopiuj cytowanie</button><button class="note-toggle" type="button">Notatka</button><div class="article-actions"><button class="action compare" type="button" aria-label="Dodaj do porównania"><span>≍</span><em>Porównaj</em></button><button class="action queue" type="button" aria-label="Dodaj do przeczytania"><span>＋</span><em>Do przeczytania</em></button><button class="action favorite" type="button" aria-label="Dodaj do ulubionych"><span>☆</span><em>Ulubione</em></button><button class="action read" type="button" aria-label="Oznacz jako przeczytane"><span>✓</span><em>Przeczytane</em></button><button class="action hide" type="button" aria-label="Ukryj"><span>−</span><em>Ukryj</em></button></div></div>
+    <section class="abstract" hidden><h4>Abstrakt</h4><p></p></section>
+    <section class="note-panel" hidden><label>Własna notatka<textarea rows="3" placeholder="Znaczenie kliniczne, metodologia, pytania…"></textarea></label><div><span class="note-status" role="status"></span><button class="button secondary save-note" type="button">Zapisz notatkę</button></div></section>
   </article>
 </template>
-<footer><div><span>Metadane: Europe PMC + PubMed</span><span>Liczba cytowań: Europe PMC</span></div></footer>
+
+<footer><div><span>Metadane: Europe PMC + PubMed</span><span>Klasyfikacja typu badania jest automatyczna — zawsze sprawdź publikację źródłową.</span></div></footer>
 </body>
 </html>
