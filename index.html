@@ -1,1 +1,92 @@
-<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spine Surgery Weekly</title><link rel="stylesheet" href="styles.css"></head><body><aside id="sidebar"><a class="brand" href="#">SPINE SURGERY <span>WEEKLY</span><small>RESEARCH BRIEFING</small></a><nav><button data-view="search" class="active">Przegląd publikacji</button><button data-view="saved">Do przeczytania <span id="savedCount">0</span></button><button data-view="read">Przeczytane</button><button data-view="journals">Czasopisma</button><button data-view="backup">Eksport i kopia</button></nav><div class="local">● Zapis lokalny<br><small>Dane w tej przeglądarce</small></div></aside><main><header><button id="menu">☰</button><span>SPINE SURGERY WEEKLY　/　<b id="crumb">Przegląd publikacji</b></span><a href="https://europepmc.org" target="_blank">EUROPE PMC ↗</a></header><div class="wrap"><section id="search" class="view active"><div class="eyebrow">SPINE SURGERY · WEEKLY DIGEST</div><h1>Najnowsze badania<br>kręgosłupa.</h1><p class="muted">Publikacje i abstrakty z Europe PMC.</p><div class="topics"><span>SZYBKIE TEMATY</span><button data-topic="(spinal stenosis OR lumbar decompression OR laminectomy)">Stenoza / dekompresja</button><button data-topic="(scoliosis OR spinal deformity)">Skolioza / deformacje</button><button data-topic="(spinal fusion OR arthrodesis)">Fuzja</button><button data-topic="(cervical spine OR cervical surgery)">Odcinek szyjny</button><button data-topic="(spinal infection OR spondylodiscitis)">Zakażenia</button></div><div class="panel"><h2>Wyszukiwanie</h2><form id="form"><label>Słowa kluczowe<input id="keywords" placeholder="np. adult spinal deformity, randomized trial"></label><div class="filters"><label>Zakres<select id="days"><option value="7">Ostatnie 7 dni</option><option value="14">Ostatnie 14 dni</option><option value="30">Ostatnie 30 dni</option></select></label><label>Limit<select id="limit"><option>25</option><option selected>50</option><option>100</option><option>200</option></select></label><label>Sortuj<select id="sort"><option value="date">Najnowsze</option><option value="relevance">Trafność</option><option value="cited">Cytowania</option></select></label><label>Typ<select id="type"><option value="">Wszystkie typy</option><option value="review">Przegląd</option><option value="clinical trial">Badanie kliniczne</option><option value="randomized controlled trial">RCT</option><option value="meta-analysis">Metaanaliza</option></select></label><label class="check"><input type="checkbox" id="oa"> Open Access</label><button id="submit" class="primary">Szukaj publikacji</button></div></form><div class="source">Źródła: <b id="sourceSummary">Czasopisma kręgosłupowe</b> <button id="goJournals">Zmień →</button></div></div><div class="row"><h2>Publikacje <small id="count"></small></h2><button id="refresh">↻ Odśwież</button></div><div id="status" class="status">Łączenie z Europe PMC…</div><div id="results"></div><p class="disclaimer">Abstrakty wyświetlane są w miarę ich dostępności w Europe PMC lub PubMed. Nie zastępują krytycznej oceny pełnej publikacji.</p></section><section id="saved" class="view"><h1>Do przeczytania</h1><p class="muted">Zapisane lokalnie.</p><button id="csv" class="primary">Eksport CSV</button> <button id="bib" class="secondary">Eksport BibTeX</button><div id="savedList"></div><div id="savedEmpty" class="empty">Lista jest pusta.</div></section><section id="read" class="view"><h1>Przeczytane</h1><p class="muted">Tytuły przeczytanych publikacji.</p><div id="readList" class="panel"></div><div id="readEmpty" class="empty">Brak przeczytanych artykułów.</div></section><section id="journals" class="view"><h1>Czasopisma</h1><p class="muted">Czasopisma kręgosłupowe są domyślnie zaznaczone.</p><div class="panel"><div class="journalbar"><input id="journalSearch" placeholder="Szukaj czasopisma"><span id="journalCount"></span><button id="clear">Wyczyść</button><button id="saveJournals" class="primary">Zapisz wybór</button></div><div id="journalGroups"></div></div></section><section id="backup" class="view"><h1>Eksport i kopia</h1><p class="muted">Dane są przechowywane lokalnie w tej przeglądarce.</p><div class="panel"><button id="backup" class="primary">Pobierz kopię JSON</button> <label class="secondary">Wczytaj kopię<input id="file" type="file" accept="application/json"></label><span id="restore" class="hidden"><button id="merge">Scal</button><button id="replace">Zastąp</button></span><p id="msg"></p></div></section></div></main><div id="toast"></div><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spine Surgery Weekly</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div>
+        <h1>Spine Surgery Weekly</h1>
+        <p>Artykuły z czasopism spine — Europe PMC + PubMed</p>
+      </div>
+      <button id="themeToggle" class="ghost-btn" type="button">Tryb ciemny</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="stats-grid" id="statsGrid">
+      <div class="stat-card"><span class="stat-label">Znalezione</span><span class="stat-value" id="statTotal">0</span></div>
+      <div class="stat-card"><span class="stat-label">Open Access</span><span class="stat-value" id="statOA">0</span></div>
+      <div class="stat-card"><span class="stat-label">Do przeczytania</span><span class="stat-value" id="statToRead">0</span></div>
+      <div class="stat-card"><span class="stat-label">Przeczytane</span><span class="stat-value" id="statRead">0</span></div>
+      <div class="stat-card"><span class="stat-label">Ulubione</span><span class="stat-value" id="statFavorites">0</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Wyszukiwanie</h2>
+        <button id="loadBtn" class="primary-btn" type="button">Pobierz artykuły</button>
+      </div>
+
+      <div class="filters">
+        <label>Od daty<input type="date" id="dateFrom" /></label>
+        <label>Do daty<input type="date" id="dateTo" /></label>
+        <label class="wide">Szukaj w tytule<input type="search" id="titleSearch" placeholder="np. scoliosis, fusion, stenosis" /></label>
+        <label>Sortowanie
+          <select id="sortBy">
+            <option value="citations">Liczba cytowań</option>
+            <option value="date">Data publikacji</option>
+            <option value="journal">Czasopismo</option>
+          </select>
+        </label>
+        <label class="checkbox-label"><input type="checkbox" id="oaOnly" />Tylko Open Access</label>
+        <label class="checkbox-label"><input type="checkbox" id="hideRead" />Ukryj przeczytane</label>
+        <label class="checkbox-label"><input type="checkbox" id="favoritesOnly" />Tylko ulubione</label>
+      </div>
+
+      <details class="journal-details">
+        <summary>Wybierz czasopisma</summary>
+        <div id="journalList" class="journal-list"></div>
+        <div class="journal-actions">
+          <button id="selectAllJournals" class="ghost-btn" type="button">Zaznacz wszystkie</button>
+          <button id="clearJournals" class="ghost-btn" type="button">Wyczyść</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Wyniki</h2>
+        <span id="resultInfo" class="muted"></span>
+      </div>
+      <div id="status" class="status"></div>
+      <div id="results" class="results"></div>
+      <div class="pagination">
+        <button id="prevPage" class="ghost-btn" type="button">Poprzednia</button>
+        <span id="pageInfo" class="muted"></span>
+        <button id="nextPage" class="ghost-btn" type="button">Następna</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Moje listy</h2></div>
+      <div class="tabs">
+        <button class="tab active" data-list="toRead" type="button">Do przeczytania</button>
+        <button class="tab" data-list="favorites" type="button">Ulubione</button>
+        <button class="tab" data-list="read" type="button">Przeczytane</button>
+      </div>
+      <div id="savedList" class="saved-list"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">Dane: Europe PMC i PubMed / NCBI E-utilities. Aplikacja działa w przeglądarce; oznaczenia zapisywane są lokalnie.</div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
