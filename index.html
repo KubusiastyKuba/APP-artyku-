@@ -11,7 +11,7 @@
     <div class="container topbar-inner">
       <div>
         <h1>Spine Surgery Weekly</h1>
-        <p>Artykuły z czasopism spine — Europe PMC + PubMed</p>
+        <p>Najnowsze artykuły z czasopism spine — Europe PMC + PubMed</p>
       </div>
       <button id="themeToggle" class="ghost-btn" type="button">Tryb ciemny</button>
     </div>
@@ -35,7 +35,7 @@
       <div class="filters">
         <label>Od daty<input type="date" id="dateFrom" /></label>
         <label>Do daty<input type="date" id="dateTo" /></label>
-        <label class="wide">Szukaj w tytule<input type="search" id="titleSearch" placeholder="np. scoliosis, fusion, stenosis" /></label>
+        <label>Szukaj w tytule<input type="search" id="titleSearch" placeholder="np. scoliosis, fusion, stenosis" /></label>
         <label>Sortowanie
           <select id="sortBy">
             <option value="citations">Liczba cytowań</option>
@@ -84,7 +84,9 @@
   </main>
 
   <footer class="footer">
-    <div class="container">Dane: Europe PMC i PubMed / NCBI E-utilities. Aplikacja działa w przeglądarce; oznaczenia zapisywane są lokalnie.</div>
+    <div class="container">
+      Dane: Europe PMC i PubMed / NCBI E-utilities. Oznaczenia artykułów są zapisywane lokalnie w przeglądarce.
+    </div>
   </footer>
 
   <script src="app.js"></script>

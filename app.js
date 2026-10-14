@@ -1,27 +1,530 @@
-const JOURNALS=["Spine","The Spine Journal","European Spine Journal","Global Spine Journal","Journal of Neurosurgery: Spine","Neurosurgical Focus","Operative Neurosurgery","Spine Deformity","Scoliosis and Spinal Disorders","The Journal of Bone and Joint Surgery","Clinical Orthopaedics and Related Research"];
-const PAGE_SIZE=20,IMPACT_THRESHOLD=20;
-const state={articles:[],filtered:[],page:1,activeList:"toRead",loading:false};
-const store={read:new Set(JSON.parse(localStorage.getItem("ssw_read")||"[]")),favorites:new Set(JSON.parse(localStorage.getItem("ssw_favorites")||"[]")),toRead:new Set(JSON.parse(localStorage.getItem("ssw_toRead")||"[]"))};
-const $=id=>document.getElementById(id);
-function saveStore(){localStorage.setItem("ssw_read",JSON.stringify([...store.read]));localStorage.setItem("ssw_favorites",JSON.stringify([...store.favorites]));localStorage.setItem("ssw_toRead",JSON.stringify([...store.toRead]));updateStats()}
-function journalQuery(j){return j.map(x=>`"${x}"[Journal]`).join(" OR ")}
-function spineQuery(){return `("spine surgery"[Title/Abstract] OR "spinal surgery"[Title/Abstract] OR "lumbar spine"[Title/Abstract] OR "cervical spine"[Title/Abstract] OR "thoracic spine"[Title/Abstract] OR scoliosis[Title/Abstract] OR kyphosis[Title/Abstract] OR spondylolisthesis[Title/Abstract] OR "spinal stenosis"[Title/Abstract] OR "disc herniation"[Title/Abstract] OR "spinal fusion"[Title/Abstract] OR "spinal deformity"[Title/Abstract] OR "spine"[Title])`}
-function dateQuery(){const f=$("dateFrom").value,t=$("dateTo").value;if(!f&&!t)return"";const s=f?f.replace(/-/g,"/"):"1900/01/01",e=t?t.replace(/-/g,"/"):"2100/12/31";return ` AND ("${s}"[Date - Publication] : "${e}"[Date - Publication])`}
-function setStatus(t,e=false){$("status").textContent=t;$("status").style.color=e?"#dc2626":"var(--muted)"}
-function normalizeArticle(r,source){const pmid=String(r.pmid||r.uid||""),doi=r.doi||r.articleids?.find(x=>x.idtype==="doi")?.value||"";const title=r.title||r.summary||"Brak tytułu",journal=r.journal?.title||r.fulljournalname||r.source||"Nieznane czasopismo";const date=r.firstPublicationDate||r.pubdate||r.pubyear||"",abstract=r.abstractText||"",citations=Number(r.citedByCount||0);const oa=r.isOpenAccess==="Y"||r.isopenaccess==="Y"||r.openaccess?.[0]?.isOpenAccess==="Y";return{id:pmid||doi||title,pmid,doi,title:title.replace(/<[^>]*>/g,""),journal,date,abstract:abstract.replace(/<[^>]*>/g,""),citations,isOpenAccess:Boolean(oa),source}}
-async function fetchEuropePMC(j){const q=`(${journalQuery(j)}) AND (${spineQuery()})${dateQuery()} NOT "preprint"[Publication Type]`;const u=new URL("https://www.ebi.ac.uk/europepmc/webservices/rest/search");u.searchParams.set("query",q);u.searchParams.set("format","json");u.searchParams.set("resultType","core");u.searchParams.set("pageSize","200");u.searchParams.set("sort","CITED desc");const r=await fetch(u);if(!r.ok)throw new Error("Europe PMC: błąd połączenia");const d=await r.json();return (d.resultList?.result||[]).map(x=>normalizeArticle(x,"Europe PMC"))}
-async function fetchPubMedIds(j){const q=`(${journalQuery(j)}) AND (${spineQuery()})${dateQuery()} NOT preprint[pt]`;const u=new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");u.searchParams.set("db","pubmed");u.searchParams.set("term",q);u.searchParams.set("retmode","json");u.searchParams.set("retmax","200");const r=await fetch(u);if(!r.ok)throw new Error("PubMed: błąd wyszukiwania");const d=await r.json();return d.esearchresult?.idlist||[]}
-async function fetchPubMedSummaries(ids){if(!ids.length)return[];const chunks=[];for(let i=0;i<ids.length;i+=100)chunks.push(ids.slice(i,i+100));const out=[];for(const c of chunks){const u=new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi");u.searchParams.set("db","pubmed");u.searchParams.set("id",c.join(","));u.searchParams.set("retmode","json");const r=await fetch(u);if(!r.ok)continue;const d=await r.json(),res=d.result||{};for(const id of c)if(res[id])out.push(normalizeArticle({...res[id],uid:id},"PubMed"))}return out}
-function mergeArticles(a,b){const m=new Map();for(const x of a)m.set(x.pmid||x.doi||x.title,x);for(const x of b){const k=x.pmid||x.doi||x.title,e=m.get(k);if(!e)m.set(k,x);else{e.abstract=e.abstract||x.abstract;e.date=e.date||x.date;e.journal=e.journal||x.journal;e.source="Europe PMC + PubMed"}}return [...m.values()]}
-function applyFilters(){const q=$("titleSearch").value.trim().toLowerCase(),sj=getSelectedJournals(),oa=$("oaOnly").checked,hr=$("hideRead").checked,fo=$("favoritesOnly").checked,sb=$("sortBy").value;state.filtered=state.articles.filter(a=>{if(sj.length&&!sj.includes(a.journal))return false;if(q&&!a.title.toLowerCase().includes(q))return false;if(oa&&!a.isOpenAccess)return false;if(hr&&store.read.has(a.id))return false;if(fo&&!store.favorites.has(a.id))return false;return true});if(sb==="citations")state.filtered.sort((a,b)=>b.citations-a.citations);else if(sb==="date")state.filtered.sort((a,b)=>new Date(b.date)-new Date(a.date));else state.filtered.sort((a,b)=>a.journal.localeCompare(b.journal));state.page=1;renderResults();updateStats()}
-function getSelectedJournals(){return [...document.querySelectorAll(".journal-item input:checked")].map(i=>i.value)}
-function articleCard(a){const c=document.createElement("article");c.className="article";const fav=store.favorites.has(a.id),read=store.read.has(a.id),tr=store.toRead.has(a.id);const url=a.pmid?`https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/`:`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(a.title)}`;c.innerHTML=`<div class="article-top"><h3 class="article-title">${esc(a.title)}</h3></div><div class="article-meta"><span>${esc(a.journal)}</span><span>${esc(a.date||"Brak daty")}</span><span>Cytowania: ${a.citations}</span><span>Źródło: ${esc(a.source)}</span></div><div class="badges">${a.isOpenAccess?'<span class="badge">Open Access</span>':""}${a.citations>=IMPACT_THRESHOLD?'<span class="badge impact">Wysoki wpływ</span>':""}</div><div class="abstract">${esc(a.abstract||"Brak abstraktu w dostępnych źródłach.")}</div><div class="article-actions"><button class="ghost-btn abstract-btn" type="button">Pokaż abstrakt</button><a href="${url}" target="_blank" rel="noopener">PubMed</a><button class="ghost-btn fav-btn ${fav?"action-active":""}" type="button">${fav?"★ Ulubione":"☆ Ulubione"}</button><button class="ghost-btn toread-btn ${tr?"action-active":""}" type="button">${tr?"✓ Do przeczytania":"+ Do przeczytania"}</button><button class="ghost-btn read-btn ${read?"action-active":""}" type="button">${read?"✓ Przeczytane":"Oznacz jako przeczytane"}</button></div>`;const t=c.querySelector(".article-title"),ab=c.querySelector(".abstract"),abBtn=c.querySelector(".abstract-btn");t.addEventListener("click",()=>t.classList.toggle("revealed"));abBtn.addEventListener("click",()=>{ab.classList.toggle("open");abBtn.textContent=ab.classList.contains("open")?"Ukryj abstrakt":"Pokaż abstrakt"});c.querySelector(".fav-btn").addEventListener("click",e=>{toggleSet(store.favorites,a.id);e.target.classList.toggle("action-active");e.target.textContent=store.favorites.has(a.id)?"★ Ulubione":"☆ Ulubione";saveStore();applyFilters()});c.querySelector(".toread-btn").addEventListener("click",e=>{toggleSet(store.toRead,a.id);e.target.classList.toggle("action-active");e.target.textContent=store.toRead.has(a.id)?"✓ Do przeczytania":"+ Do przeczytania";saveStore();updateStats()});c.querySelector(".read-btn").addEventListener("click",e=>{toggleSet(store.read,a.id);e.target.classList.toggle("action-active");e.target.textContent=store.read.has(a.id)?"✓ Przeczytane":"Oznacz jako przeczytane";saveStore();applyFilters()});return c}
-function toggleSet(s,id){s.has(id)?s.delete(id):s.add(id)}
-function esc(v){return String(v).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
-function renderResults(){const c=$("results");c.innerHTML="";const tp=Math.max(1,Math.ceil(state.filtered.length/PAGE_SIZE));state.page=Math.min(state.page,tp);const s=(state.page-1)*PAGE_SIZE,p=state.filtered.slice(s,s+PAGE_SIZE);$("resultInfo").textContent=`${state.filtered.length} artykułów`;$("pageInfo").textContent=`Strona ${state.page} z ${tp}`;$("prevPage").disabled=state.page<=1;$("nextPage").disabled=state.page>=tp;if(!p.length){c.innerHTML='<div class="empty">Brak artykułów dla wybranych filtrów.</div>';return}p.forEach(a=>c.appendChild(articleCard(a)))}
-function renderSavedList(){const c=$("savedList");c.innerHTML="";const ids=state.activeList==="toRead"?store.toRead:state.activeList==="favorites"?store.favorites:store.read;if(!ids.size){c.innerHTML='<div class="empty">Lista jest pusta.</div>';return}const arts=state.articles.filter(a=>ids.has(a.id));if(!arts.length){c.innerHTML='<div class="empty">Oznaczone artykuły pojawią się tutaj po pobraniu wyników.</div>';return}arts.forEach(a=>{const i=document.createElement("div");i.className="saved-item";const url=a.pmid?`https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/`:`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(a.title)}`;i.innerHTML=`<a href="${url}" target="_blank" rel="noopener">${esc(a.title)}</a><div class="muted">${esc(a.journal)} • ${esc(a.date||"")}</div>`;c.appendChild(i)})}
-function updateStats(){$("statTotal").textContent=state.articles.length;$("statOA").textContent=state.articles.filter(a=>a.isOpenAccess).length;$("statToRead").textContent=store.toRead.size;$("statRead").textContent=store.read.size;$("statFavorites").textContent=store.favorites.size}
-function renderJournalList(){const c=$("journalList");c.innerHTML="";JOURNALS.forEach(j=>{const l=document.createElement("label");l.className="journal-item";l.innerHTML=`<input type="checkbox" value="${esc(j)}" checked /><span>${esc(j)}</span>`;c.appendChild(l)})}
-async function loadArticles(){if(state.loading)return;const j=getSelectedJournals();if(!j.length){setStatus("Wybierz co najmniej jedno czasopismo.",true);return}state.loading=true;$("loadBtn").disabled=true;setStatus("Pobieram artykuły z Europe PMC i PubMed…");try{const [epmc,ids]=await Promise.all([fetchEuropePMC(j),fetchPubMedIds(j)]);const pm=await fetchPubMedSummaries(ids);state.articles=mergeArticles(epmc,pm);setStatus(`Pobrano ${state.articles.length} unikalnych artykułów.`);applyFilters()}catch(e){console.error(e);setStatus(e.message||"Nie udało się pobrać danych.",true)}finally{state.loading=false;$("loadBtn").disabled=false}}
-function init(){const t=new Date(),w=new Date(t);w.setDate(t.getDate()-7);$("dateFrom").value=w.toISOString().slice(0,10);$("dateTo").value=t.toISOString().slice(0,10);renderJournalList();updateStats();renderSavedList();$("loadBtn").addEventListener("click",loadArticles);["titleSearch","sortBy","oaOnly","hideRead","favoritesOnly"].forEach(id=>{$(id).addEventListener("input",applyFilters);$(id).addEventListener("change",applyFilters)});$("prevPage").addEventListener("click",()=>{state.page--;renderResults()});$("nextPage").addEventListener("click",()=>{state.page++;renderResults()});$("selectAllJournals").addEventListener("click",()=>document.querySelectorAll(".journal-item input").forEach(i=>i.checked=true));$("clearJournals").addEventListener("click",()=>document.querySelectorAll(".journal-item input").forEach(i=>i.checked=false));document.querySelectorAll(".tab").forEach(tab=>tab.addEventListener("click",()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));tab.classList.add("active");state.activeList=tab.dataset.list;renderSavedList()}));$("themeToggle").addEventListener("click",()=>{document.body.classList.toggle("dark");localStorage.setItem("ssw_theme",document.body.classList.contains("dark")?"dark":"light")});if(localStorage.getItem("ssw_theme")==="dark")document.body.classList.add("dark")}
+const JOURNALS = [
+  "Spine",
+  "The Spine Journal",
+  "European Spine Journal",
+  "Global Spine Journal",
+  "Journal of Neurosurgery: Spine",
+  "Neurosurgical Focus",
+  "Operative Neurosurgery",
+  "Spine Deformity",
+  "Scoliosis and Spinal Disorders",
+  "The Journal of Bone and Joint Surgery",
+  "Clinical Orthopaedics and Related Research"
+];
+
+const PAGE_SIZE = 20;
+const IMPACT_THRESHOLD = 20;
+
+const state = { articles: [], filtered: [], page: 1, activeList: "toRead", loading: false };
+
+const store = {
+  read: new Set(JSON.parse(localStorage.getItem("ssw_read") || "[]")),
+  favorites: new Set(JSON.parse(localStorage.getItem("ssw_favorites") || "[]")),
+  toRead: new Set(JSON.parse(localStorage.getItem("ssw_toRead") || "[]"))
+};
+
+const $ = id => document.getElementById(id);
+
+function saveStore() {
+  localStorage.setItem("ssw_read", JSON.stringify([...store.read]));
+  localStorage.setItem("ssw_favorites", JSON.stringify([...store.favorites]));
+  localStorage.setItem("ssw_toRead", JSON.stringify([...store.toRead]));
+  updateStats();
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function cleanAbstract(text) {
+  if (!text) return "";
+  return String(text)
+    .replace(/<br\s*\/?>/gi, "\n\n")
+    .replace(/<\/(h4|h3|h2|p|div|li)>/gi, "\n\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function journalQuery(journals) {
+  return journals.map(j => `"${j}"[Journal]`).join(" OR ");
+}
+
+function spineQuery() {
+  return `(
+    "spine surgery"[Title/Abstract] OR "spinal surgery"[Title/Abstract] OR
+    "lumbar spine"[Title/Abstract] OR "cervical spine"[Title/Abstract] OR
+    "thoracic spine"[Title/Abstract] OR scoliosis[Title/Abstract] OR
+    kyphosis[Title/Abstract] OR spondylolisthesis[Title/Abstract] OR
+    "spinal stenosis"[Title/Abstract] OR "disc herniation"[Title/Abstract] OR
+    "spinal fusion"[Title/Abstract] OR "spinal deformity"[Title/Abstract] OR
+    "spine"[Title]
+  )`;
+}
+
+function europePmcDate() {
+  const from = $("dateFrom").value;
+  const to = $("dateTo").value;
+  if (!from && !to) return "";
+  const start = from ? from.replaceAll("-", "/") : "1900/01/01";
+  const end = to ? to.replaceAll("-", "/") : "2100/12/31";
+  return ` AND FIRST_PDATE:[${start} TO ${end}]`;
+}
+
+function pubMedDate() {
+  const from = $("dateFrom").value;
+  const to = $("dateTo").value;
+  if (!from && !to) return "";
+  const start = from ? from.replaceAll("-", "/") : "1900/01/01";
+  const end = to ? to.replaceAll("-", "/") : "2100/12/31";
+  return ` AND ("${start}"[Date - Publication] : "${end}"[Date - Publication])`;
+}
+
+function setStatus(message, isError = false) {
+  const status = $("status");
+  status.textContent = message;
+  status.classList.toggle("error", isError);
+}
+
+function normalizeEuropePmc(item) {
+  const pmid = String(item.pmid || "");
+  const doi = item.doi || item.articleids?.find(x => x.idtype === "doi")?.value || "";
+  const title = item.title || "Brak tytułu";
+  const journal = item.journal?.title || item.journalInfo?.journal?.title || item.source || "Nieznane czasopismo";
+  const date = item.firstPublicationDate || item.firstIndexDate || "";
+  const abstract = cleanAbstract(item.abstractText);
+  const citations = Number(item.citedByCount || 0);
+  const isOpenAccess = item.isOpenAccess === "Y" || item.inPMC === "Y" || item.inEPMC === "Y";
+
+  return {
+    id: pmid || doi || title,
+    pmid,
+    doi,
+    title,
+    journal,
+    date,
+    abstract,
+    citations,
+    isOpenAccess: Boolean(isOpenAccess),
+    source: "Europe PMC"
+  };
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Błąd połączenia (${response.status}).`);
+  }
+  return response.json();
+}
+
+async function fetchEuropePMC(journals) {
+  const query = `(${journalQuery(journals)}) AND (${spineQuery()})${europePmcDate()}`;
+  const url = new URL("https://www.ebi.ac.uk/europepmc/webservices/rest/search");
+  url.searchParams.set("query", query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("resultType", "core");
+  url.searchParams.set("pageSize", "200");
+  url.searchParams.set("sort", "CITED desc");
+
+  const data = await fetchJson(url);
+  return (data.resultList?.result || []).map(normalizeEuropePmc);
+}
+
+async function fetchPubMedIds(journals) {
+  const query = `(${journalQuery(journals)}) AND (${spineQuery()})${pubMedDate()} NOT preprint[pt]`;
+  const url = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
+  url.searchParams.set("db", "pubmed");
+  url.searchParams.set("term", query);
+  url.searchParams.set("retmode", "json");
+  url.searchParams.set("retmax", "200");
+
+  try {
+    const data = await fetchJson(url);
+    return data.esearchresult?.idlist || [];
+  } catch (error) {
+    console.warn("PubMed ESearch niedostępny w tej przeglądarce:", error);
+    return [];
+  }
+}
+
+async function fetchPubMedSummaries(pmids) {
+  if (!pmids.length) return [];
+
+  const results = [];
+
+  for (let i = 0; i < pmids.length; i += 100) {
+    const chunk = pmids.slice(i, i + 100);
+    const url = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi");
+    url.searchParams.set("db", "pubmed");
+    url.searchParams.set("id", chunk.join(","));
+    url.searchParams.set("retmode", "json");
+
+    try {
+      const data = await fetchJson(url);
+      const result = data.result || {};
+
+      for (const pmid of chunk) {
+        if (!result[pmid]) continue;
+        const item = result[pmid];
+        results.push({
+          id: pmid,
+          pmid,
+          doi: item.articleids?.find(x => x.idtype === "doi")?.value || "",
+          title: item.title || "Brak tytułu",
+          journal: item.fulljournalname || item.source || "Nieznane czasopismo",
+          date: item.pubdate || "",
+          abstract: "",
+          citations: 0,
+          isOpenAccess: false,
+          source: "PubMed"
+        });
+      }
+    } catch (error) {
+      console.warn("PubMed ESummary niedostępny:", error);
+    }
+  }
+
+  return results;
+}
+
+function mergeArticles(europePmcArticles, pubMedArticles) {
+  const map = new Map();
+
+  for (const article of europePmcArticles) {
+    map.set(article.pmid || article.doi || article.title, article);
+  }
+
+  for (const article of pubMedArticles) {
+    const key = article.pmid || article.doi || article.title;
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, article);
+    } else {
+      existing.source = "Europe PMC + PubMed";
+    }
+  }
+
+  return [...map.values()];
+}
+
+function getSelectedJournals() {
+  return [...document.querySelectorAll(".journal-item input:checked")].map(input => input.value);
+}
+
+function applyFilters() {
+  const titleQuery = $("titleSearch").value.trim().toLowerCase();
+  const selectedJournals = getSelectedJournals();
+  const oaOnly = $("oaOnly").checked;
+  const hideRead = $("hideRead").checked;
+  const favoritesOnly = $("favoritesOnly").checked;
+  const sortBy = $("sortBy").value;
+
+  state.filtered = state.articles.filter(article => {
+    if (selectedJournals.length && !selectedJournals.includes(article.journal)) return false;
+    if (titleQuery && !article.title.toLowerCase().includes(titleQuery)) return false;
+    if (oaOnly && !article.isOpenAccess) return false;
+    if (hideRead && store.read.has(article.id)) return false;
+    if (favoritesOnly && !store.favorites.has(article.id)) return false;
+    return true;
+  });
+
+  if (sortBy === "citations") {
+    state.filtered.sort((a, b) => b.citations - a.citations);
+  } else if (sortBy === "date") {
+    state.filtered.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  } else {
+    state.filtered.sort((a, b) => a.journal.localeCompare(b.journal));
+  }
+
+  state.page = 1;
+  renderResults();
+  updateStats();
+}
+
+function toggleSet(set, id) {
+  if (set.has(id)) set.delete(id);
+  else set.add(id);
+}
+
+function articleCard(article) {
+  const card = document.createElement("article");
+  card.className = "article";
+
+  const isFavorite = store.favorites.has(article.id);
+  const isRead = store.read.has(article.id);
+  const isToRead = store.toRead.has(article.id);
+
+  const pubmedUrl = article.pmid
+    ? `https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`
+    : `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(article.title)}`;
+
+  const hasAbstract = Boolean(article.abstract);
+
+  card.innerHTML = `
+    <h3 class="article-title">${esc(article.title)}</h3>
+
+    <div class="article-meta">
+      <span>${esc(article.journal)}</span>
+      <span>${esc(article.date || "Brak daty")}</span>
+      <span>Cytowania: ${article.citations}</span>
+      <span>Źródło: ${esc(article.source)}</span>
+    </div>
+
+    <div class="badges">
+      ${article.isOpenAccess ? '<span class="badge oa">Open Access</span>' : ""}
+      ${article.citations >= IMPACT_THRESHOLD ? '<span class="badge impact">Wysoki wpływ</span>' : ""}
+    </div>
+
+    <div class="abstract">${hasAbstract ? esc(article.abstract) : "Brak abstraktu w metadanych Europe PMC / PubMed."}</div>
+
+    <div class="article-actions">
+      <button class="ghost-btn abstract-btn" type="button" ${hasAbstract ? "" : "disabled"}>
+        ${hasAbstract ? "Pokaż abstrakt" : "Brak abstraktu"}
+      </button>
+      <a href="${pubmedUrl}" target="_blank" rel="noopener">Otwórz w PubMed</a>
+      <button class="ghost-btn fav-btn ${isFavorite ? "action-active" : ""}" type="button">
+        ${isFavorite ? "★ Ulubione" : "☆ Ulubione"}
+      </button>
+      <button class="ghost-btn toread-btn ${isToRead ? "action-active" : ""}" type="button">
+        ${isToRead ? "✓ Do przeczytania" : "+ Do przeczytania"}
+      </button>
+      <button class="ghost-btn read-btn ${isRead ? "action-active" : ""}" type="button">
+        ${isRead ? "✓ Przeczytane" : "Oznacz jako przeczytane"}
+      </button>
+    </div>
+  `;
+
+  const abstract = card.querySelector(".abstract");
+  const abstractButton = card.querySelector(".abstract-btn");
+
+  if (hasAbstract) {
+    abstractButton.addEventListener("click", () => {
+      abstract.classList.toggle("open");
+      abstractButton.textContent = abstract.classList.contains("open")
+        ? "Ukryj abstrakt"
+        : "Pokaż abstrakt";
+    });
+  }
+
+  card.querySelector(".fav-btn").addEventListener("click", event => {
+    toggleSet(store.favorites, article.id);
+    event.currentTarget.classList.toggle("action-active");
+    event.currentTarget.textContent = store.favorites.has(article.id) ? "★ Ulubione" : "☆ Ulubione";
+    saveStore();
+    applyFilters();
+  });
+
+  card.querySelector(".toread-btn").addEventListener("click", event => {
+    toggleSet(store.toRead, article.id);
+    event.currentTarget.classList.toggle("action-active");
+    event.currentTarget.textContent = store.toRead.has(article.id) ? "✓ Do przeczytania" : "+ Do przeczytania";
+    saveStore();
+    updateStats();
+  });
+
+  card.querySelector(".read-btn").addEventListener("click", event => {
+    toggleSet(store.read, article.id);
+    event.currentTarget.classList.toggle("action-active");
+    event.currentTarget.textContent = store.read.has(article.id) ? "✓ Przeczytane" : "Oznacz jako przeczytane";
+    saveStore();
+    applyFilters();
+  });
+
+  return card;
+}
+
+function renderResults() {
+  const container = $("results");
+  container.innerHTML = "";
+
+  const totalPages = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
+  state.page = Math.min(state.page, totalPages);
+
+  const start = (state.page - 1) * PAGE_SIZE;
+  const pageArticles = state.filtered.slice(start, start + PAGE_SIZE);
+
+  $("resultInfo").textContent = `${state.filtered.length} artykułów`;
+  $("pageInfo").textContent = `Strona ${state.page} z ${totalPages}`;
+  $("prevPage").disabled = state.page <= 1;
+  $("nextPage").disabled = state.page >= totalPages;
+
+  if (!pageArticles.length) {
+    container.innerHTML = '<div class="empty">Brak artykułów dla wybranych filtrów. Spróbuj poszerzyć zakres dat lub wybrać więcej czasopism.</div>';
+    return;
+  }
+
+  pageArticles.forEach(article => container.appendChild(articleCard(article)));
+}
+
+function renderSavedList() {
+  const container = $("savedList");
+  container.innerHTML = "";
+
+  const ids =
+    state.activeList === "toRead" ? store.toRead :
+    state.activeList === "favorites" ? store.favorites :
+    store.read;
+
+  if (!ids.size) {
+    container.innerHTML = '<div class="empty">Lista jest pusta.</div>';
+    return;
+  }
+
+  const articles = state.articles.filter(article => ids.has(article.id));
+
+  if (!articles.length) {
+    container.innerHTML = '<div class="empty">Oznaczone artykuły pojawią się tutaj po pobraniu wyników.</div>';
+    return;
+  }
+
+  articles.forEach(article => {
+    const item = document.createElement("div");
+    item.className = "saved-item";
+
+    const pubmedUrl = article.pmid
+      ? `https://pubmed.ncbi.nlm.nih.gov/${article.pmid}/`
+      : `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(article.title)}`;
+
+    item.innerHTML = `
+      <a href="${pubmedUrl}" target="_blank" rel="noopener">${esc(article.title)}</a>
+      <div class="muted">${esc(article.journal)} • ${esc(article.date || "")}</div>
+    `;
+
+    container.appendChild(item);
+  });
+}
+
+function updateStats() {
+  $("statTotal").textContent = state.articles.length;
+  $("statOA").textContent = state.articles.filter(a => a.isOpenAccess).length;
+  $("statToRead").textContent = store.toRead.size;
+  $("statRead").textContent = store.read.size;
+  $("statFavorites").textContent = store.favorites.size;
+}
+
+function renderJournalList() {
+  const container = $("journalList");
+  container.innerHTML = "";
+
+  JOURNALS.forEach(journal => {
+    const label = document.createElement("label");
+    label.className = "journal-item";
+    label.innerHTML = `
+      <input type="checkbox" value="${esc(journal)}" checked />
+      <span>${esc(journal)}</span>
+    `;
+    container.appendChild(label);
+  });
+}
+
+async function loadArticles() {
+  if (state.loading) return;
+
+  const journals = getSelectedJournals();
+  if (!journals.length) {
+    setStatus("Wybierz co najmniej jedno czasopismo.", true);
+    return;
+  }
+
+  state.loading = true;
+  $("loadBtn").disabled = true;
+  setStatus("Pobieram artykuły z Europe PMC i PubMed…");
+
+  try {
+    const europePmcArticles = await fetchEuropePMC(journals);
+    const pubMedIds = await fetchPubMedIds(journals);
+    const pubMedArticles = await fetchPubMedSummaries(pubMedIds);
+
+    state.articles = mergeArticles(europePmcArticles, pubMedArticles);
+
+    if (!state.articles.length) {
+      setStatus("Nie znaleziono artykułów. Poszerz zakres dat lub sprawdź połączenie z internetem.");
+    } else {
+      setStatus(`Pobrano ${state.articles.length} unikalnych artykułów.`);
+    }
+
+    applyFilters();
+  } catch (error) {
+    console.error(error);
+    setStatus(`Nie udało się pobrać artykułów: ${error.message}`, true);
+  } finally {
+    state.loading = false;
+    $("loadBtn").disabled = false;
+  }
+}
+
+function init() {
+  const today = new Date();
+  const weekAgo = new Date(today);
+  weekAgo.setDate(today.getDate() - 7);
+
+  $("dateFrom").value = weekAgo.toISOString().slice(0, 10);
+  $("dateTo").value = today.toISOString().slice(0, 10);
+
+  renderJournalList();
+  updateStats();
+  renderSavedList();
+
+  $("loadBtn").addEventListener("click", loadArticles);
+
+  ["titleSearch", "sortBy", "oaOnly", "hideRead", "favoritesOnly"].forEach(id => {
+    $(id).addEventListener("input", applyFilters);
+    $(id).addEventListener("change", applyFilters);
+  });
+
+  $("prevPage").addEventListener("click", () => {
+    if (state.page > 1) {
+      state.page--;
+      renderResults();
+    }
+  });
+
+  $("nextPage").addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(state.filtered.length / PAGE_SIZE));
+    if (state.page < totalPages) {
+      state.page++;
+      renderResults();
+    }
+  });
+
+  $("selectAllJournals").addEventListener("click", () => {
+    document.querySelectorAll(".journal-item input").forEach(input => input.checked = true);
+  });
+
+  $("clearJournals").addEventListener("click", () => {
+    document.querySelectorAll(".journal-item input").forEach(input => input.checked = false);
+  });
+
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(item => item.classList.remove("active"));
+      tab.classList.add("active");
+      state.activeList = tab.dataset.list;
+      renderSavedList();
+    });
+  });
+
+  $("themeToggle").addEventListener("click", () => {
+    document.body.classList.toggle("dark");
+    localStorage.setItem("ssw_theme", document.body.classList.contains("dark") ? "dark" : "light");
+  });
+
+  if (localStorage.getItem("ssw_theme") === "dark") {
+    document.body.classList.add("dark");
+  }
+}
+
 init();
